@@ -43,3 +43,55 @@ pointer; border: 2px solid transparent; }
 <canvas id="viewCanvas"></canvas>
 </div>
 <div class="gallery-strip" id="galleryStrip"></div>
+<script>
+const video = document.getElementById('webcam');
+const canvas = document.getElementById('viewCanvas');
+const ctx = canvas.getContext('2d');
+let currentFacingMode = 'environment', stream = null, isDragging = false;
+let startX = 0, startY = 0, endX = 0, endY = 0, hasActiveBox = false;
+async function startCamera(facingMode) {
+if (stream) stream.getTracks().forEach(t => t.stop());
+stream = await navigator.mediaDevices.getUserMedia({
+video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+});
+video.srcObject = stream;
+await video.play();
+canvas.width = video.videoWidth || 640;
+canvas.height = video.videoHeight || 480;
+}
+canvas.addEventListener('mousedown', (e) => {
+const rect = canvas.getBoundingClientRect();
+startX = (e.clientX - rect.left) * (canvas.width / rect.width);
+startY = (e.clientY - rect.top) * (canvas.height / rect.height);
+isDragging = true; hasActiveBox = true;
+});
+canvas.addEventListener('mousemove', (e) => {
+if (!isDragging) return;
+const rect = canvas.getBoundingClientRect();
+endX = (e.clientX - rect.left) * (canvas.width / rect.width);
+endY = (e.clientY - rect.top) * (canvas.height / rect.height);
+});
+  window.addEventListener('mouseup', () => isDragging = false);
+function renderMain() {
+if (video.readyState === video.HAVE_ENOUGH_DATA) {
+ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+if (hasActiveBox) {
+const xMin = Math.min(startX, endX), yMin = Math.min(startY, endY);
+const boxW = Math.abs(endX - startX), boxH = Math.abs(endY - startY);
+if (boxW > 20 && boxH > 20) {
+ctx.save();
+ctx.beginPath(); ctx.rect(xMin, yMin, boxW, boxH); ctx.clip();
+ctx.drawImage(video, xMin + boxW/4, yMin + boxH/4, boxW/2, boxH/2, xMin, yMin,
+boxW, boxH);
+ctx.restore();
+ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3;
+ctx.strokeRect(xMin, yMin, boxW, boxH);
+}
+}
+}
+requestAnimationFrame(renderMain);
+}
+window.onload = () => { startCamera(currentFacingMode); renderMain(); };
+</script>
+</body>
+</html>
